@@ -1,51 +1,79 @@
 import numpy as np
 
 class DataScaler:
-    def __init__(self, method='normalize', min_value=0.0, max_value=1.0):
-        """
-        Initialize the DataScaler.
-        
-        Args:
-            method (str): The scaling method to use. Options: 'normalize' or 'standardize'.
-        """
-        self.method = method
-        self.min_value=min_value 
-        self.max_value=max_value
+    def __init__(self, method='normalize', min_range=0.0, max_range=1.0):
+        """ Data scaler class
 
-    def scale(self, data):
-        """
-        Scale the input data based on the chosen method.
-        
         Args:
-            data (numpy.ndarray): The input data to be scaled.
-            
-        Returns:
-            numpy.ndarray: The scaled data.
+            method (str, optional): scaling method to use. Options: 'normalize' or 'standardize. Defaults to 'normalize'.
+            min_range (float, optional): if normalization, the minimum range. Defaults to 0.0.
+            max_range (float, optional): if normalization, the maximum range. Defaults to 1.0.
         """
-        if self.method == 'normalize':
-            return self.normalize(data, self.min_value, self.max_value)
-        elif self.method == 'standardize':
-            return self.standardize(data)
+        if method in ['normalize', 'standardize']:
+            self.method = method
         else:
             raise ValueError("Invalid scaling method. Options are 'normalize' or 'standardize'.")
 
-    def normalize(self, data, min_value=0.0, max_value=1.0):
+        self.min_range=min_range 
+        self.max_range=max_range
+        self.min_value=None 
+        self.max_value=None
+        self.mean = None
+        self.std = None
+        self.data_fit = False
+
+    def fit(self, data):
         """
-        Normalize the input data given range. Default between 0 and 1
+        Calculate statistics (mean, std, min, max) based on the input data.
+
+        Args:
+            data (numpy.ndarray): The input data to calculate statistics from.
+        """
+        if self.method == 'normalize':
+            self.min_value = np.min(data)
+            self.max_value = np.max(data)
+        elif self.method == 'standardize':
+            self.mean = np.mean(data)
+            self.std = np.std(data)
+        else:
+            raise ValueError("Invalid scaling method. Options are 'normalize' or 'standardize'.")
+        
+        self.data_fit = True
+        
+    def transform(self, data):
+        """
+        Apply the recorded transformation to the input data.
+
+        Args:
+            data (numpy.ndarray): The input data to be scaled.
+
+        Returns:
+            numpy.ndarray: The scaled data.
+        """
+        if not self.data_fit:
+            self.fit(data)
+
+        if self.method == 'normalize':
+            return self.normalize(data)
+        elif self.method == 'standardize':
+            return self.standardize(data)
+
+    def normalize(self, data):
+        """
+        Normalize the input data using recorded min and max values between given range. Default range between 0 and 1
         
         Args:
             data (numpy.ndarray): The input data to be normalized.
-            min_value (float): The minimum value of the desired range.
-            max_value (float): The maximum value of the desired range.
         Returns:
             numpy.ndarray: The normalized data.
-        """
-        normalized_data = min_value + (data - np.min(data)) * (max_value - min_value) / (np.max(data) - np.min(data))
+        """        
+        normalized_data = self.min_range + (data - self.min_value) * (self.max_range - self.min_range) / (self.max_value - self.min_value)
+        np.clip(normalized_data, a_min=self.min_range, a_max=self.max_range)
         return normalized_data
 
     def standardize(self, data):
         """
-        Standardize the input data using the mean and standard deviation.
+        Standardize the input data using the recorded mean and standard deviation.
         
         Args:
             data (numpy.ndarray): The input data to be standardized.
@@ -53,5 +81,5 @@ class DataScaler:
         Returns:
             numpy.ndarray: The standardized data.
         """
-        standardized_data = (data - np.mean(data)) / np.std(data)
+        standardized_data = (data - self.mean) / self.std
         return standardized_data
