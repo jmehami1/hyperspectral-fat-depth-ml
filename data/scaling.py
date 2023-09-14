@@ -1,4 +1,5 @@
 import numpy as np
+import pickle
 
 class DataScaler:
     def __init__(self, method='normalize', min_range=0.0, max_range=1.0):
@@ -21,6 +22,15 @@ class DataScaler:
         self.mean = None
         self.std = None
         self.data_fit = False
+
+    @classmethod
+    def from_file(self, file):
+        """Constructor for data scaler method previously fit and saved
+
+        Args:
+            file (string): file path
+        """
+        self.load(file=file)
 
     def fit(self, data):
         """
@@ -83,3 +93,10 @@ class DataScaler:
         """
         standardized_data = (data - self.mean) / self.std
         return standardized_data
+    
+    def save(self, file):
+        with open(file, 'wb') as f:
+            pickle.dump((self.min_range, self.max_range, self.min_value, self.max_value, self.mean, self.std, self.data_fit), f)
+
+    def load(self, file):
+        self.min_range, self.max_range, self.min_value, self.max_value, self.mean, self.std, self.data_fit = pickle.load(open(file, 'rb'))
