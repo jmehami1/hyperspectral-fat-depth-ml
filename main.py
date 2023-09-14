@@ -1,4 +1,392 @@
-
+import os
+import torch
+from utils.utils import has_folder
+from data.dataset import load_fat_depth_regression, FatDepthDataset
+from data.scaling import DataScaler
+from data.dimensionality_reduction import DimensionReducer
 
 if __name__ == '__main__':
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
+    # data directories (move this to config file)
+    path_training = "/home/jmehami/Data/lamb_carcass_une_2022"
+    path_testing = "/home/jmehami/Data/lamb_carcass_une_2021"
+
+    # check if data directories exist 
+    if not has_folder(path_training, "fat_depth_regression"):
+        raise Exception(f"{path_training} does not have the fat_depth_regression folder")
+    else:
+        path_training = os.path.join(path_training, "fat_depth_regression")
+    
+    if not has_folder(path_testing, "fat_depth_regression"):
+        raise Exception(f"{path_testing} does not have the fat_depth_regression folder")
+    else:
+        path_testing = os.path.join(path_testing, "fat_depth_regression")
+    
+    training_testing_is_same_dir = (path_training == path_testing)
+
+    split_ratio_training_validation = 0.8
+    
+    # load data from directories
+    if training_testing_is_same_dir:
+        split_ratio_training_testing = 0.8
+        fat_depth_training = load_fat_depth_regression(path_training)
+    else:
+        fat_depth_training = load_fat_depth_regression(path_training)
+        fat_depth_testing = load_fat_depth_regression(path_testing)
+
+    scaler = DataScaler(method='normalize')
+
+    reducer = DimensionReducer(n_components=20, reduction_method='FA')
+
+    temp = FatDepthDataset(fat_depth_training, scaler, reducer)
+
+
+        
+
+    
+    
+
+
+
+    #scale data
+
+    #dimensionality reduction
+    
+    
+    print("end of script")
+
+
+
+# import numpy as np
+# import torch
+# from my_models import MLPRegressor
+# import os
+# import pandas as pd
+# import torchvision.transforms as transforms
+
+
+
+# import torch.nn as nn
+# from torch.nn import functional
+# import torch.optim as optim
+# from torchinfo import summary
+# from torch.utils.data import Dataset, random_split
+# import time
+# from ray import tune, air
+# from ray.air import Checkpoint, session
+# from ray.tune.schedulers import ASHAScheduler
+# import multiprocessing
+# import matplotlib.pyplot as plt
+# # from sklearn.metrics import r2_score
+# from torchmetrics.regression import R2Score
+
+
+# import wandb
+# from ray.air.integrations.wandb import setup_wandb
+# from ray.air.integrations.wandb import WandbLoggerCallback
+
+
+# def train_ray_tune(config, dataset, train_validate_ratio, input_layer, output_layer, device, num_epochs=50):
+# 	batch_size = int(config["batch_size"])
+# 	learning_rate = config["learning_rate"]
+# 	layer1 = int(config["layer1"])
+# 	layer2 = int(config["layer2"])
+# 	momentum = config["momentum"]
+
+# 	# model
+# 	hidden_layers = [layer1, layer2]
+# 	model = MLPRegressor(input_layer, output_layer, hidden_layers).to(device)
+
+# 	#loss and optimizer
+# 	criterion = nn.MSELoss(reduction='mean')
+# 	optimizer = optim.SGD(model.parameters(), lr=learning_rate, momentum=momentum)
+
+# 	# ray tune checkpoint
+# 	# checkpoint = session.get_checkpoint()
+
+# 	# checkpoints seems to add significant overhead when saving models.
+# 	# if checkpoint:
+# 	# 	checkpoint_state = checkpoint.to_dict()
+# 	# 	start_epoch = checkpoint_state["epoch"]
+# 	# 	model.load_state_dict(checkpoint_state["model_state_dict"])
+# 	# 	optimizer.load_state_dict(checkpoint_state["optimizer_state_dict"])
+# 	# else:
+# 	# 	start_epoch = 0
+
+# 	start_epoch = 0
+
+# 	# data
+# 	train_size = int(len(dataset) * train_validate_ratio)
+# 	validate_size = len(dataset) - train_size
+# 	dataset_train, dataset_validation = random_split(dataset, [train_size, validate_size])
+
+# 	train_loader = torch.utils.data.DataLoader(
+#         dataset_train, batch_size=batch_size, shuffle=True
+#     )
+	
+# 	validation_loader = torch.utils.data.DataLoader(
+#         dataset_validation
+#     )
+
+
+# 	# ray tune training and validation loop
+# 	for epoch in range(start_epoch, num_epochs):
+# 		model.train()
+# 		batch_loss = []
+
+# 		for i, (inputs, labels) in enumerate(train_loader):
+# 			optimizer.zero_grad()
+# 			output = model(inputs)
+# 			loss = criterion(output,labels)
+# 			loss.backward()
+# 			optimizer.step()
+# 			batch_loss.append(loss.item())
+
+# 		train_loss = np.mean(batch_loss)
+
+# 		model.eval()
+# 		validation_loss = []
+# 		with torch.no_grad():
+# 			for i, (inputs, labels) in enumerate(validation_loader):
+# 				output = model(inputs)
+# 				loss = criterion(output,labels)
+# 				validation_loss.append(loss.item())
+
+# 		validation_loss = np.mean(validation_loss)
+
+# 		# checkpoint_data = {
+#         #     "epoch": epoch,
+#         #     "model_state_dict": model.state_dict(),
+#         #     "optimizer_state_dict": optimizer.state_dict(),
+# 	    # 	"validation_loss": validation_loss
+#         # }
+
+# 		# checkpoint = Checkpoint.from_dict(checkpoint_data)
+# 		session.report({
+# 			"validation_loss": validation_loss,
+# 			"training_loss": train_loss},
+#             # checkpoint=checkpoint,
+#         )
+
+# def train_best_config(config, dataset_train, dataset_test, input_layer, output_layer, device, num_epochs=10):
+# 	# parameters to tune
+# 	batch_size = int(config["batch_size"])
+# 	learning_rate = config["learning_rate"]
+# 	layer1 = int(config["layer1"])
+# 	layer2 = int(config["layer2"])
+# 	momentum = config["momentum"]
+
+# 	# model
+# 	hidden_layers = [layer1, layer2]
+# 	model = MLPRegressor(input_layer, output_layer, hidden_layers).to(device)
+
+# 	#loss and optimizer
+# 	criterion = nn.MSELoss(reduction='mean')
+# 	optimizer = optim.SGD(model.parameters(), lr=learning_rate, momentum=momentum)
+
+
+# 	# data
+# 	# train_size = int(len(dataset) * train_test_ratio)
+# 	# test_size = len(dataset) - train_size
+# 	# dataset_train, dataset_test = random_split(dataset, [train_size, test_size])
+
+# 	train_loader = torch.utils.data.DataLoader(
+#         dataset_train, batch_size=batch_size, shuffle=True
+#     )
+	
+# 	test_loader = torch.utils.data.DataLoader(
+#         dataset_test
+#     )
+
+# 	# training
+# 	model.train()
+# 	for epoch in range(num_epochs):
+# 		batch_loss = []
+# 		start_time = time.time()
+
+# 		for i, (inputs, labels) in enumerate(train_loader):
+# 			optimizer.zero_grad()
+# 			output = model(inputs)
+# 			loss = criterion(output,labels)
+# 			loss.backward()
+# 			optimizer.step()
+# 			batch_loss.append(loss.item())
+
+# 		train_loss = np.mean(batch_loss)
+# 		wandb.log({"Training loss": train_loss})
+# 		print("\tEpoch: {:>2}/{:} \t Average Training Loss: {:>3.3f} \t Epoch Time: {:>5.3f}s".format(epoch + 1, num_epochs, train_loss, (time.time() - start_time)))
+
+# 	# testing
+# 	model.eval()
+# 	with torch.no_grad():
+# 		test_loss = []
+# 		y_true = []
+# 		y_predicted = []
+
+# 		for inputs, labels in test_loader:
+# 			output = model(inputs)
+# 			loss = criterion(output,labels)
+# 			test_loss.append(loss.item())
+
+# 			y_predicted.append(output)
+# 			y_true.append(labels)
+
+# 		r2score = R2Score()
+# 		r2_test = r2score(y_predicted, y_true)
+
+# 	test_loss = np.mean(test_loss)
+# 	wandb.run.summary["R2 Test"] = r2_test.numpy()
+# 	wandb.run.summary["Test Loss"] = test_loss
+# 	print("R2 test: {0:2.3f}, test loss: {1:2.3e}".format(r2_test, test_loss))
+
+
+# class StandardizeTransform(object):
+#     def __init__(self, dim):
+#         self.dim = dim
+
+#     def __call__(self, tensor):
+#         mean = torch.mean(tensor, dim=self.dim, keepdim=True)
+#         std = torch.std(tensor, dim=self.dim, keepdim=True)
+#         return (tensor - mean) / std
+	
+	
+# class RealEstateDataset(Dataset):
+# 	def __init__(self, device):
+# 		csv_file = os.path.join(os.curdir, "data", "real_estate_valuation_data_set.csv")
+# 		dataset = pd.read_csv(csv_file, delimiter=",")
+
+# 		dataset.hist()
+# 		plt.suptitle("Raw Data")
+# 		plt.show(block=False)
+
+# 		data_transform = StandardizeTransform(dim=0)
+
+# 		dataset_tensor = torch.from_numpy(dataset.to_numpy(dtype=np.float32)).to(device)
+# 		X = dataset_tensor[:, 0:6]
+# 		self.y = dataset_tensor[:, -1]
+# 		self.X = data_transform(X)
+# 		# self.X = functional.normalize(X, dim=0)
+# 		# self.X = functional.std (X, dim=0)
+		
+
+# 		dataset_normalized = pd.DataFrame(torch.cat((self.X, self.y.reshape(-1,1)), 1).cpu().numpy(), columns=dataset.columns)
+
+# 		dataset_normalized.hist()
+# 		plt.suptitle("Normalized Data")
+# 		plt.show(block=False)
+
+# 		self.num_samples = dataset.shape[0]
+
+
+# 	def __getitem__(self, index):
+# 		return self.X[index,:], self.y[index]
+	
+# 	def __len__(self):
+# 		return self.num_samples
+	
+
+
+# if __name__ == "__main__":
+# 	# device and pc details
+# 	device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+	
+# 	if device.type == 'cuda':
+# 		num_gpu = torch.cuda.device_count()
+# 	else:
+# 		num_gpu = 0
+
+# 	num_cores = multiprocessing.cpu_count()
+# 	print("Training device: {0}".format(device))
+# 	print("Number of CPU cores: {0:2d}".format(num_cores))
+# 	print("Number of GPUs : {0:2d}".format(num_gpu))
+
+# 	project_name = "real_estate"
+
+# 	wandb.init(mode="disabled")
+	    
+# 	#dataset 
+# 	dataset = RealEstateDataset(device)
+# 	num_samples = len(dataset)
+# 	first_row = dataset[0]
+# 	features, labels = first_row
+# 	print(features, labels)
+
+# 	# parameters for problem
+# 	input_layer = features.shape[0]
+# 	output_layer = 1
+# 	train_test_split_ratio = 0.8
+# 	train_validate_split_ratio = 0.8
+
+# 	# split data train (train and validate) and test
+# 	train_size = int(len(dataset) * train_test_split_ratio)
+# 	test_size = len(dataset) - train_size
+# 	dataset_train, dataset_test = random_split(dataset, [train_size, test_size])
+
+# 	config = {
+#     "layer1": tune.grid_search(range(input_layer, input_layer*2, 2)),
+#     "layer2": tune.grid_search(range(input_layer, input_layer*2, 2)),
+#     "learning_rate": tune.grid_search([10**x for x in np.arange(-4, 0, 0.5)]),
+#     "batch_size": tune.grid_search([1, 2, 4, 20, 50, 100]),
+#     "momentum": tune.grid_search(np.linspace(0, 1, 6)),
+#     "wandb": {"project": project_name},
+# 	}
+
+# 	# config = {
+#     # "layer1": tune.grid_search(range(input_layer, input_layer*2, 10)),
+#     # "layer2": tune.grid_search(range(input_layer, input_layer*2, 10)),
+#     # "learning_rate": tune.grid_search([10**x for x in range(-4, 0, 3)]),
+#     # "batch_size": tune.grid_search([1]),
+#     # "momentum": tune.grid_search(np.linspace(0, 1, 1)),
+# 	# "wandb": {"project": project_name},
+# 	# }
+
+# 	# scheduler used to terminate bad trials early, pause trials, and change hyperparameters
+# 	scheduler = ASHAScheduler(
+#         metric="validation_loss",
+#         mode="min",
+#         max_t=20,
+#         grace_period=1,
+#         reduction_factor=2,
+#     )
+
+# 	# launches hyperparater tuning jobs with given tuning function, scheduler and parameter search space
+# 	tuner = tune.Tuner(
+#         tune.with_resources(
+#             tune.with_parameters(train_ray_tune, dataset=dataset_train, 
+# 				 train_validate_ratio=train_validate_split_ratio, input_layer=input_layer, output_layer=output_layer, device=device),
+#             resources={"cpu": 1, "gpu": 1/10}
+#         ),
+#         tune_config=tune.TuneConfig(
+#             scheduler=scheduler,
+#             num_samples=10,
+#         ),
+#         param_space=config,
+# 		run_config=air.RunConfig(
+# 			verbose=1, 
+# 			name=project_name, 
+# 			local_dir="./raytune",
+# 			checkpoint_config=air.CheckpointConfig(
+# 				num_to_keep=1,
+# 				# checkpoint_score_attribute="validation_loss",
+# 				# checkpoint_score_order="min"
+# 				),
+# 			callbacks=[
+#                 WandbLoggerCallback(project=project_name)
+#             ]
+# 		)
+#     )
+
+# 	results = tuner.fit()
+# 	best_result = results.get_best_result("validation_loss", "min")
+# 	print("Best trial config: {}".format(best_result.config))
+# 	print("Best trial: training loss {0:2.3e}, validation loss: {1:2.3e}".format(best_result.metrics["training_loss"], best_result.metrics["validation_loss"]))
+
+# 	wandb.init(
+# 		project=project_name,
+# 		name="mlp_standardized_features",
+# 		config=best_result.config)
+
+# 	train_best_config(config=best_result.config, dataset_train=dataset_train, dataset_test=dataset_test, input_layer=input_layer, output_layer=output_layer, device=device, num_epochs=200)
+
 
