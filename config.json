@@ -1,0 +1,18 @@
+{
+    "path_training": "/home/jmehami/Data/lamb_carcass_une_2022",
+    "path_testing": "/home/jmehami/Data/lamb_carcass_une_2022",
+    "project_name": "lamb_carcass_2022-2022",
+    "experiment_name": "mininet_best",
+    "split_ratio_training_testing": 0.8,
+    "split_ratio_training_validation": 0.8,
+    "reduction_components": 20,
+    "number_epochs": 100,
+    "result_dir": "/home/jmehami/Data/lamb_carcass_une_fatdepth_ml",
+    "preprocessing": {
+        "tune": false,
+        "reduction_components": 20,
+        "reduction_method": "FA",
+        "scaler_method": "normalize"
+    },
+    "tune_hyperparameters": true
+}

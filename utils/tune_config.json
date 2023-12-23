@@ -1,0 +1,25 @@
+{
+    "preprocessing":{
+        "reduction_method": {"type": "grid_search", "value": ["PCA", "FA"]},
+        "scaler_method": {"type": "grid_search", "value": ["normalize", "standardize"]},
+        "reduction_components": {"type": "grid_search", "value": [20]},
+        "model": {"type": "grid_search", "value": ["linear_regression"]},
+        "learning_rate": {"type": "grid_search", "value": [0.005]},
+        "batch_size": {"type": "grid_search", "value": [32]},
+        "momentum": {"type": "grid_search", "value": [0.0]}
+    },
+    "search_space": {
+        "model": {"type": "grid_search", "value": ["mininetv2"]},
+        "learning_rate": {"type": "grid_search", "value": [0.001, 0.005, 0.01, 0.05, 0.1]},
+        "batch_size": {"type": "grid_search", "value": [1, 4, 8]},
+        "momentum": {"type": "grid_search", "value": [0.0, 0.2, 0.4, 0.6, 0.8, 1.0]},
+        "reduction_components": {"type": "grid_search", "value": [20]}
+    },
+    "num_samples": 5,
+    "stop": {
+        "training_iteration": 50
+    },
+    "num_gpus": 1,
+    "checkpoint_dir": "./ray_results",
+    "result_dir": "./tune_results"
+}

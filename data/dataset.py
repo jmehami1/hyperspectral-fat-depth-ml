@@ -1,5 +1,7 @@
 import os
+from typing import Any
 import numpy as np
+import torch
 from torch.utils.data import Dataset
 from utils.utils import get_folder_names
 from scipy.io import loadmat
@@ -7,6 +9,34 @@ from matplotlib.pyplot import imread
 from torch.nn.functional import normalize
 from data.dimensionality_reduction import DimensionReducer
 from data.scaling import DataScaler
+import random
+
+def split_training_data_of_samples(fat_depth_data, split_ratio):
+	num_training_samples = int(np.ceil(split_ratio*fat_depth_data['number_samples']))
+	sample_indices = list(range(0, int(fat_depth_data['number_samples'])))
+	random.shuffle(sample_indices)
+	sample_indices_training = sample_indices[0:num_training_samples]
+	sample_indices_testing = sample_indices[num_training_samples:int(fat_depth_data['number_samples'])]
+
+	fat_depth_training = {
+		'reflectance_cube': (fat_depth_data['reflectance_cube'])[sample_indices_training],
+		'fat_depth_map': (fat_depth_data['fat_depth_map'])[sample_indices_training],
+		'masks': (fat_depth_data['masks'])[sample_indices_training],
+		'rgb_projected': (fat_depth_data['rgb_projected'])[sample_indices_training],
+		'sample_names': np.array(fat_depth_data['sample_names'])[sample_indices_training],
+		'number_samples': num_training_samples
+	}
+
+	fat_depth_testing = {
+		'reflectance_cube': (fat_depth_data['reflectance_cube'])[sample_indices_testing],
+		'fat_depth_map': (fat_depth_data['fat_depth_map'])[sample_indices_testing],
+		'masks': (fat_depth_data['masks'])[sample_indices_testing],
+		'rgb_projected': (fat_depth_data['rgb_projected'])[sample_indices_testing],
+		'sample_names': np.array(fat_depth_data['sample_names'])[sample_indices_testing],
+		'number_samples': len(sample_indices_testing)
+	}
+
+	return fat_depth_training, fat_depth_testing
 
 def stack_with_pad(data):
     """
@@ -100,18 +130,26 @@ def load_fat_depth_regression(data_path, reflectance_type="estimated_reflectance
 
 
 class FatDepthDataset(Dataset):
-	def __init__(self, fat_depth_data, scaler, reducer, load_as_image=False):
+	def __init__(self, fat_depth_data, scaler, reducer, testing=False, load_as_image=False, transform=None):
 		self.reflectance_cube = fat_depth_data['reflectance_cube']
 		self.fat_depth_map = fat_depth_data['fat_depth_map']
 		self.sample_names = fat_depth_data['sample_names']
 		self.number_samples = fat_depth_data['number_samples']
 		self.masks = fat_depth_data['masks']
 		self.load_as_image = load_as_image
+		self.transform = transform
 		
 		# if not training model that requires images (CNN), convert to list of pixel reflectance measurements
 		if load_as_image:
 			self.data = self.reflectance_cube
 			self.labels = self.fat_depth_map
+
+			data_shape = self.data.shape
+			labels_shape = self.labels.shape
+
+			# reshape data and labels to 2D and 1D arrays respectively for dimensionality reduction
+			self.data = np.reshape(self.data, (-1, data_shape[-1]))
+			self.labels = np.reshape(self.labels, (-1, 1))
 		else:
 			curr_mask = self.masks[0,:,:]
 
@@ -134,29 +172,45 @@ class FatDepthDataset(Dataset):
 				curr_fatdepth_pixels = np.squeeze(np.array(curr_fatdepth_image[curr_mask].tolist()))
 				self.labels = np.hstack((self.labels, curr_fatdepth_pixels))
 
-			# each pixel is a training sample
-			self.number_samples = self.labels.shape[0]
+				# each pixel is a training sample
+				self.number_samples = self.labels.shape[0]
 
-		print("Scaling data")
-		scaler.fit(self.data)
-		self.data = scaler.transform(self.data)
+		if testing:
+			self.data = scaler.transform(self.data)
+			self.data = reducer.transform(self.data)
+		else:
+			scaler.fit(self.data)
+			self.data = scaler.transform(self.data)
 
-		print("Dimensionality reduction")
-		reducer.fit(self.data)
-		self.data = reducer.transform(self.data)
-		# reducer = DimensionReducer(n_components=20, reduction_method='PCA')
-		# reducer.fit(self.data)
-		# h = 1
-	
+			reducer.fit(self.data, self.labels)
+			self.data = reducer.transform(self.data)
+
+		# return data and labels back to 3D and 2D arrays respectively 
+		if load_as_image:
+			num_components = reducer.n_components
+			self.data = np.reshape(self.data, data_shape[:-1] + (num_components,))
+			self.labels = np.reshape(self.labels, labels_shape)
 
 	def __getitem__(self, index):
 		if self.load_as_image:
-			return self.data[index, :, :, :], self.labels[index, :, :]
-		
-		return self.data[index,:], self.labels[index]
+			data = self.data[index, :, :, :]
+			data = np.transpose(data, (2, 0, 1))
+			sample =  data, self.labels[index, :, :]
+		else:
+			sample = self.data[index,:], np.array(self.labels[index], ndmin=1)
+
+		if self.transform:
+			sample = self.transform(sample)
+
+		return sample
 	
 	def __len__(self):
 		return self.number_samples
+	
+class ToTensor:
+	def __call__(self, sample):
+		data, labels = sample
+		return torch.from_numpy(data).double(), torch.from_numpy(labels).double()
 
 			
 			

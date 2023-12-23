@@ -13,7 +13,7 @@ class DataScaler:
         if method in ['normalize', 'standardize']:
             self.method = method
         else:
-            raise ValueError("Invalid scaling method. Options are 'normalize' or 'standardize'.")
+            raise ValueError(f"{method} Invalid scaling method. Options are 'normalize' or 'standardize'.")
 
         self.min_range=min_range 
         self.max_range=max_range

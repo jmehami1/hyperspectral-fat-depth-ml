@@ -29,18 +29,17 @@ class DimensionReducer:
         self.load(file=file)
 
     def fit(self, X, y=None):
-        X_new = np.reshape(X, (-1, X.shape[-1]))
         if y is None:
-            return self.reduction_model.fit(X_new)
+            return self.reduction_model.fit(X)
         else:
-            y_new = np.reshape(y, -1)
-            return self.reduction_model.fit(X_new, y_new)
+            return self.reduction_model.fit(X, y)
 
     def transform(self, X):
-        X_new = np.reshape(X, (-1, X.shape[-1]))
-        X_new = self.reduction_model.transform(X_new)
-        X_new = np.reshape(X_new, X.shape[:-1] + (self.n_components,))
-        return X_new
+        # X_new = np.reshape(X, (-1, X.shape[-1]))
+        X_transformed = self.reduction_model.transform(X)
+        # X_new = np.reshape(X_new, X.shape[:-1] + (self.n_components,))
+        # X_new = np.transpose(X_new, (0, 3, 1, 2)) # transpose to [number of components x height x width]
+        return X_transformed
 
     def save(self, file):
         with open(file, 'wb') as f:
