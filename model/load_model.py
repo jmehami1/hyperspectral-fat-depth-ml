@@ -3,9 +3,9 @@ from model.linear_regression import LinearRegression
 from model.erfnet import ERFNet
 
 models_available = {
-    'mininetv2': MiniNetv2,
-    'linear_regression': LinearRegression,
-    'erfnet': ERFNet
+    'MiniNetv2': MiniNetv2,
+    'LinearRegression': LinearRegression,
+    'ERFNet': ERFNet
 }
 
 def load_model(model_name, input_channels):

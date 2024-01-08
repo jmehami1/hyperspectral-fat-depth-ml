@@ -73,7 +73,7 @@ class MiniNetv2Module(nn.Module):
 class MiniNetv2Upsample(nn.Module):
     def __init__(self, input_channels, out_channels):
         super().__init__()
-        self.conv = nn.ConvTranspose2d(input_channels, out_channels, 3, stride=2, padding=0)
+        self.conv = nn.ConvTranspose2d(input_channels, out_channels, 3, stride=2, padding=0, dilation=1)
 
     def forward(self, x):
         output = self.conv(x)
@@ -90,6 +90,30 @@ class Interpolate(nn.Module):
     def forward(self, x):
         x = self.interp(x, size=self.size, mode=self.mode, align_corners=True)
         return x
+    
+def add_padding_even_dimension(image):
+    """Add padding of 1 pixel thickness to original image height or width if either are even. Padding will be added to either bottom or right of image.
+
+    Args:
+        image (Image): original image
+
+    Returns:
+        Image: Padded image
+    """
+    height, width = image.size(-2), image.size(-1)
+
+    # Check if height is even, pad bottom side
+    if height % 2 == 0:
+        image = F.pad(image, (0, 0, 0, 1), mode='constant', value=0)
+        # image = F.pad(image, (0, 0, 1, 1), mode='constant', value=0)
+        
+
+    # Check if width is even, pad right side
+    if width % 2 == 0:
+        image = F.pad(image, (0, 1, 0, 0), mode='constant', value=0)
+        # image = F.pad(image, (1, 1, 0, 0), mode='constant', value=0)
+
+    return image
 
 
 class MiniNetv2(RegressionModel):
@@ -120,39 +144,39 @@ class MiniNetv2(RegressionModel):
         # 4. Upsample block
         self.up1 = MiniNetv2Upsample(128, 64)
         self.m_upsample = nn.ModuleList([MiniNetv2Module(64, 64, 1) for i in range(4)])
-        self.output = MiniNetv2Upsample(64, 1)
+        self.up2 = MiniNetv2Upsample(64, 16)
+        self.output = MiniNetv2Upsample(16, 1)
 
     def forward(self, x):
-        # print("Input")
-        # print(x.shape)
+        # pad (if necessary)
+        x_padded = add_padding_even_dimension(x)
 
-        # print("Downsample")
-        d1 = self.d1(x)
+        # Refinement
+        d4 = self.d4(x_padded)
+        d5 = self.d5(d4)
+
+        # Downsample
+        d1 = self.d1(x_padded)
         d2 = self.d2(d1)
         m_downsample = d2
         for m in self.m_downsample:
             m_downsample = m(m_downsample)
         d3 = self.d3(m_downsample)
 
-        # print("Feature")
+        # Feature
         m_feature = d3
         for m in self.m_feature:
             m_feature = m(m_feature)
 
-        # print("Refinement")
-        d4 = self.d4(x)
-        d5 = self.d5(d4)
-        # print("d5", d5.shape)
 
-        # print("Upsample")
+        # Upsample
         up1 = self.up1(m_feature)
-        # print("m_feature", m_feature.shape)
-        # print("up1", up1.shape)
         m_upsample = up1 + d5
         for m in self.m_upsample:
             m_upsample = m(m_upsample)
-
+        m_upsample = self.up2(m_upsample)
         output = self.output(m_upsample)
+
         output = Interpolate(size=x.shape[2:])(output)
 
         return output
